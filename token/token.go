@@ -1,7 +1,6 @@
-
 package token
 
-import(
+import (
 	"fmt"
 )
 
@@ -13,14 +12,14 @@ type Token struct {
 
 type Type int
 
-const(
+const (
 	INVALID Type = iota
 	EOF
 )
 
 type Pos struct {
 	Offset int
-	Line int
+	Line   int
 	Column int
 }
 
@@ -29,8 +28,8 @@ func (this Pos) String() string {
 }
 
 type TokenMap struct {
-	typeMap  []string
-	idMap map[string]Type
+	typeMap []string
+	idMap   map[string]Type
 }
 
 func (this TokenMap) Id(tok Type) string {
@@ -101,48 +100,47 @@ var TokMap = TokenMap{
 		";",
 	},
 
-	idMap: map[string]Type {
+	idMap: map[string]Type{
 		"INVALID": 0,
-		"$": 1,
-		"word": 2,
-		"number": 3,
-		"=": 4,
-		"&&": 5,
-		"||": 6,
-		"!": 7,
-		"|": 8,
-		"(": 9,
-		")": 10,
-		"for": 11,
-		"in": 12,
-		"name": 13,
-		"case": 14,
-		"esac": 15,
-		";;": 16,
-		"if": 17,
-		"then": 18,
-		"fi": 19,
-		"elif": 20,
-		"else": 21,
-		"while": 22,
-		"until": 23,
-		"{": 24,
-		"}": 25,
-		"do": 26,
-		"done": 27,
-		"<": 28,
-		"<&": 29,
-		">": 30,
-		">&": 31,
-		">>": 32,
-		"<>": 33,
-		">|": 34,
-		"<<": 35,
-		"<<-": 36,
-		"\n": 37,
+		"$":       1,
+		"word":    2,
+		"number":  3,
+		"=":       4,
+		"&&":      5,
+		"||":      6,
+		"!":       7,
+		"|":       8,
+		"(":       9,
+		")":       10,
+		"for":     11,
+		"in":      12,
+		"name":    13,
+		"case":    14,
+		"esac":    15,
+		";;":      16,
+		"if":      17,
+		"then":    18,
+		"fi":      19,
+		"elif":    20,
+		"else":    21,
+		"while":   22,
+		"until":   23,
+		"{":       24,
+		"}":       25,
+		"do":      26,
+		"done":    27,
+		"<":       28,
+		"<&":      29,
+		">":       30,
+		">&":      31,
+		">>":      32,
+		"<>":      33,
+		">|":      34,
+		"<<":      35,
+		"<<-":     36,
+		"\n":      37,
 		"nothing": 38,
-		"&": 39,
-		";": 40,
+		"&":       39,
+		";":       40,
 	},
 }
-

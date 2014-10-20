@@ -1,19 +1,19 @@
-
 /*
-*/
+ */
 package parser
 
 const numNTSymbols = 47
-type(
+
+type (
 	gotoTable [numStates]gotoRow
-	gotoRow	[numNTSymbols] int
+	gotoRow   [numNTSymbols]int
 )
 
 var gotoTab = gotoTable{
 	gotoRow{ // S0
-		
+
 		-1, // S'
-		1, // Word
+		1,  // Word
 		-1, // IoNumber
 		-1, // AssignmentWord
 		-1, // List
@@ -59,11 +59,10 @@ var gotoTab = gotoTable{
 		-1, // SeparatorOp
 		-1, // Separator
 		-1, // SequentialSep
-		
 
 	},
 	gotoRow{ // S1
-		
+
 		-1, // S'
 		-1, // Word
 		-1, // IoNumber
@@ -111,11 +110,10 @@ var gotoTab = gotoTable{
 		-1, // SeparatorOp
 		-1, // Separator
 		-1, // SequentialSep
-		
 
 	},
 	gotoRow{ // S2
-		
+
 		-1, // S'
 		-1, // Word
 		-1, // IoNumber
@@ -163,8 +161,6 @@ var gotoTab = gotoTable{
 		-1, // SeparatorOp
 		-1, // Separator
 		-1, // SequentialSep
-		
 
 	},
-	
 }
