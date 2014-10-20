@@ -1,0 +1,223 @@
+!whitespace : ' ' | '\t' | '\n' | '\r' ;
+
+_letter : 'a'-'z' 'A'-'Z' ;
+_digit : '0'-'9' ;
+
+number : _digit {_digit} ;
+word /*BAD*/ : _letter {_letter | '_'} ;
+nothing : . ;
+
+name : ( _letter | '_' ) { _letter | '_' | _digit } ;
+
+<< import "github.com/localhots/penny/ast" >>
+
+/* Tokens */
+
+Word
+    : word << ast.NewWord($0) >>
+    ;
+IoNumber
+    : number << ast.NewIoNumber($0) >>
+    ;
+
+/* Commands */
+
+/*
+CompleteCommand
+    : List Separator
+    | List
+    ;
+*/
+AssignmentWord
+    : Word "=" Word << ast.NewAssignment($0, $2) >>
+    ;
+List
+    : List SeparatorOp AndOr << ast.AppendToList($0, $2) >>
+    | AndOr                  << ast.NewList($0) >>
+    ;
+AndOr
+    : Pipeline                      << ast.NewAndOr($0) >>
+    | AndOr "&&" Linebreak Pipeline << ast.AppendAnd($0, $3) >>
+    | AndOr "||" Linebreak Pipeline << ast.AppendOr($0, $3) >>
+    ;
+Pipeline
+    : PipeSequence     << ast.NewPipeline($1, false) >>
+    | "!" PipeSequence << ast.NewPipeline($1, true) >>
+    ;
+PipeSequence
+    : Command                            << ast.NewPipeSequence($0) >>
+    | PipeSequence "|" Linebreak Command << ast.AppendToPipeSequence($0, $3) >>
+    ;
+Command
+    : SimpleCommand                << ast.NewCommand($0, nil) >>
+    | CompoundCommand              << ast.NewCommand($0, nil) >>
+    | CompoundCommand RedirectList << ast.NewCommand($0, $1) >>
+    | FunctionDefinition           << ast.NewCommand($0, nil) >>
+    ;
+CompoundCommand
+    : BraceGroup  << ast.NewCompoundCommand($0) >>
+    | Subshell    << ast.NewCompoundCommand($0) >>
+    | ForClause   << ast.NewCompoundCommand($0) >>
+    | CaseClause  << ast.NewCompoundCommand($0) >>
+    | IfClause    << ast.NewCompoundCommand($0) >>
+    | WhileClause << ast.NewCompoundCommand($0) >>
+    | UntilClause << ast.NewCompoundCommand($0) >>
+    ;
+Subshell
+    : "(" CompoundList ")" << ast.NewSubshell($1) >>
+    ;
+CompoundList
+    : Term                        << ast.NewCompoundList($0, nil) >>
+    | NewlineList Term            << ast.NewCompoundList($1, $2) >>
+    | Term Separator              << ast.NewCompoundList($0, $1) >>
+    | NewlineList Term Separator  << ast.NewCompoundList($1, $2) >>
+    ;
+Term
+    : Term Separator AndOr << ast.AppendToTerm($0, $2, $1) >>
+    | AndOr                << ast.NewTerm($0) >>
+    ;
+ForClause
+    : "for" Name Linebreak DoGroup                             << ast.NewForClause($1, ast.Wordlist{}, $3) >>
+    | "for" Name Linebreak "in" SequentialSep DoGroup          << ast.NewForClause($1, ast.Wordlist{}, $5) >>
+    | "for" Name Linebreak "in" Wordlist SequentialSep DoGroup << ast.NewForClause($1, $4, $6) >>
+    ;
+Name
+    : name << ast.NewName($0) >> /* Apply rule 5 */
+    ;
+Wordlist
+    : Wordlist Word << ast.AppendToWordlist($0, $1) >>
+    | Word          << ast.NewWordlist($0) >>
+    ;
+CaseClause
+    : "case" Word Linebreak "in" Linebreak CaseList "esac"   << ast.NewCaseClause($1, $5) >>
+    | "case" Word Linebreak "in" Linebreak CaseListNs "esac" << ast.NewCaseClause($1, $5) >>
+    | "case" Word Linebreak "in" Linebreak "esac"            << ast.NewCaseClause($1, ast.CaseList{}) >>
+    ;
+CaseListNs
+    : CaseList CaseItemNs << ast.AppendToCaseList($0, $1) >>
+    | CaseItemNs          << ast.NewCaseList($0) >>
+    ;
+CaseList
+    : CaseList CaseItem  << ast.AppendToCaseList($0, $1) >>
+    | CaseItem           << ast.NewCaseList($0) >>
+    ;
+CaseItemNs
+    : Pattern ")" Linebreak                  << ast.NewCaseItem($0, nil) >>
+    | Pattern ")" CompoundList Linebreak     << ast.NewCaseItem($0, $2) >>
+    | "(" Pattern ")" Linebreak              << ast.NewCaseItem($1, nil) >>
+    | "(" Pattern ")" CompoundList Linebreak << ast.NewCaseItem($1, $3) >>
+    ;
+CaseItem
+    : Pattern ")" Linebreak ";;" Linebreak        << ast.NewCaseItem($0, nil) >>
+    | Pattern ")" CompoundList ";;" Linebreak     << ast.NewCaseItem($0, $2) >>
+    | "(" Pattern ")" Linebreak ";;" Linebreak    << ast.NewCaseItem($1, nil) >>
+    | "(" Pattern ")" CompoundList ";;" Linebreak << ast.NewCaseItem($1, $3) >>
+    ;
+Pattern
+    : Word             << ast.NewPattern($0) >>  /* Apply rule 4 */
+    | Pattern "|" Word << ast.AppendToPattern($0, $2) >> /* Do not apply rule 4 */
+    ;
+IfClause
+    : "if" CompoundList "then" CompoundList ElsePart "fi" << ast.NewIfClause($1, $3, $4) >>
+    | "if" CompoundList "then" CompoundList "fi"          << ast.NewIfClause($1, $3, nil) >>
+    ;
+ElsePart
+    : "elif" CompoundList "then" ElsePart << ast.NewIfClause($1, nil, $3) >>
+    | "else" CompoundList                 << ast.NewIfClause(nil, $1, nil) >>
+    ;
+WhileClause
+    : "while" CompoundList DoGroup << ast.NewWhileClause($1, $2) >>
+    ;
+UntilClause
+    : "until" CompoundList DoGroup << ast.NewUntilClause($1, $2) >>
+    ;
+FunctionDefinition
+    : FunctionName "(" ")" Linebreak FunctionBody << ast.NewFunctionDefinition($0, $4) >>
+    ;
+FunctionBody
+    : CompoundCommand              << ast.NewFunctionBody($0, ast.RedirectList{}) >> /* Apply rule 9 */
+    | CompoundCommand RedirectList << ast.NewFunctionBody($0, $1) >> /* Apply rule 9 */
+    ;
+FunctionName
+    : Word << ast.NewFunctionName($0) >> /* Apply rule 8 */
+    ;
+BraceGroup
+    : "{" CompoundList "}" << ast.NewBraceGroup($1) >>
+    ;
+DoGroup
+    : "do" CompoundList "done" << ast.NewDoGroup($1) >> /* Apply rule 6 */
+    ;
+SimpleCommand
+    : CmdPrefix CmdWord CmdSuffix << ast.NewSimpleCommand($0,  nil, $1,  $2) >>
+    | CmdPrefix CmdWord           << ast.NewSimpleCommand($0,  nil, $1,  nil) >>
+    | CmdPrefix                   << ast.NewSimpleCommand($0,  nil, nil, nil) >>
+    | CmdName CmdSuffix           << ast.NewSimpleCommand(nil, $0,  nil, $1) >>
+    | CmdName                     << ast.NewSimpleCommand(nil, $0,  nil, nil) >>
+    ;
+CmdName
+    : Word << ast.NewCmdName($0) >> /* Apply rule 7a */
+    ;
+CmdWord
+    : Word << ast.NewCmdWord($0) >> /* Apply rule 7b */
+    ;
+CmdPrefix
+    : IoRedirect               << ast.NewCmdPrefix(nil, $0, nil) >>
+    | CmdPrefix IoRedirect     << ast.NewCmdPrefix(nil, $1, $0) >>
+    | AssignmentWord           << ast.NewCmdPrefix($0, nil, nil) >>
+    | CmdPrefix AssignmentWord << ast.NewCmdPrefix($1, nil, $0) >>
+    ;
+CmdSuffix
+    : IoRedirect           << ast.NewCmdSuffix(ast.Word(""), $0, nil) >>
+    | CmdSuffix IoRedirect << ast.NewCmdSuffix(ast.Word(""), $1, $0) >>
+    | Word                 << ast.NewCmdSuffix($0, nil, nil) >>
+    | CmdSuffix Word       << ast.NewCmdSuffix($1, nil, $0) >>
+    ;
+RedirectList
+    : IoRedirect              << ast.NewRedirectList($0) >>
+    | RedirectList IoRedirect << ast.AppendToRedirectList($0, $1) >>
+    ;
+IoRedirect
+    : IoFile          << ast.NewIoRedirect($0, ast.IoNumber(0), nil) >>
+    | IoNumber IoFile << ast.NewIoRedirect($1, $0, nil) >>
+    | IoHere          << ast.NewIoRedirect(nil, ast.IoNumber(0), $0) >>
+    | IoNumber IoHere << ast.NewIoRedirect(nil, $0, $1) >>
+    ;
+IoFile
+    : "<"  Filename << ast.NewIoFile($1, ast.R_STDIN) >>
+    | "<&" Filename << ast.NewIoFile($1, ast.R_INFD) >>
+    | ">"  Filename << ast.NewIoFile($1, ast.R_STDOUT) >>
+    | ">&" Filename << ast.NewIoFile($1, ast.R_OUTFD) >>
+    | ">>" Filename << ast.NewIoFile($1, ast.R_APPEND) >>
+    | "<>" Filename << ast.NewIoFile($1, ast.R_ORWFD) >>
+    | ">|" Filename << ast.NewIoFile($1, ast.R_OUTSP) >>
+    ;
+Filename
+    : Word << ast.NewFilename($0) >> /* Apply rule 2 */
+    ;
+IoHere
+    : "<<"  HereEnd << ast.NewIoHere($1, false) >>
+    | "<<-" HereEnd << ast.NewIoHere($1, true) >>
+    ;
+HereEnd
+    : Word << ast.NewHereEnd($0) >> /* Apply rule 3 */
+    ;
+NewlineList
+    : "\n"
+    | NewlineList "\n"
+    ;
+Linebreak
+    : NewlineList
+    | nothing
+    ;
+SeparatorOp
+    : "&" << ast.S_AMP, nil >>
+    | ";" << ast.S_SEMICOLON, nil >>
+    ;
+Separator
+    : SeparatorOp Linebreak << ast.NewSeparator($0) >>
+    | NewlineList
+    ;
+SequentialSep
+    : ";" Linebreak
+    | NewlineList
+    ;
